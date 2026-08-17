@@ -5,7 +5,7 @@
 监控三大类生产资料/农产品的市场方向：
   · 化肥 (Fertilizer) : 尿素、磷酸一铵、磷酸二铵、氯化钾、硫酸钾、复合肥
   · 农药 (Pesticide)  : 草甘膦、吡虫啉、多菌灵、阿维菌素
-  · 水果 (Fruit)      : 苹果(期货实时) + 水果价格指数(农业农村部官方，免费开放)
+  · 水果 (Fruit)      : 苹果/柑橘类/梨/桃/李子 真实批发价(农业农村部全国重点农产品平台，免登录) + 水果价格指数(官方)
 
 数据源策略（坚持"只抓真实数据、不合成指数"）：
   · 尿素/苹果 —— 实时抓取（新浪期货 UR0 / AP0 主连，免费、无鉴权、稳定），source="live"
@@ -16,9 +16,10 @@
   · 水果价格指数(官方) —— 农业农村部信息中心「全国农产品批发市场价格信息系统」公开接口
              （/price_portal/pi-info-day/getIndexByLevel，免费、无需登录），
              返回官方发布的"水果"价格指数，source="live-moa"。真实官方指数，非合成。
-  · 柑橘/梨/桃/李子 等单品鲜果 —— 农业农村部按品种的批发价明细接口需要登录态 token，
-             免费注册后仍可取数；当前未接入，故不纳入监控（不编造数据）。
-             若用户注册并提供会话 token，可在 fetch_moa_fruit_index() 旁扩展单品抓取。
+  · 水果单品批发价（苹果/柑橘类/梨/桃/李子）—— 农业农村部「全国重点农产品市场信息平台」
+             (ncpscxx.moa.gov.cn) 免登录公开接口，返回全国各批发市场报价
+             （AES-256-CBC 加密，已在脚本内解密），取中位数，单位 元/公斤，
+             source="live-moa"。真实数据，非合成、非参考价。
 
 输出：
   data/agri_prices.json  —— 按 YYYY-MM-DD 键值的完整历史
@@ -43,6 +44,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import requests
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.primitives.padding import PKCS7
+import base64
 
 # ── Windows UTF-8 修复 ──
 if sys.stdout.encoding != "utf-8":
@@ -104,9 +108,19 @@ TARGETS = [
      "pid": 1453,  "ref_price": 35000, "as_of": "2026-08-01"},
     {"key": "阿维菌素", "en": "Abamectin",    "category": "农药", "unit": "元/吨",
      "pid": 1312,  "ref_price": 480000, "as_of": "2026-08-01"},
-    # 水果
-    {"key": "苹果",     "en": "Apple",        "category": "水果", "unit": "元/吨",
-     "pid": None, "futures": "AP0", "ref_price": 7800, "as_of": "2026-08-14"},
+    # 水果（真实批发价：农业农村部「全国重点农产品市场信息平台」ncpscxx.moa.gov.cn
+    #       免登录公开接口，返回全国各批发市场报价，AES 解密后取中位数；单位 元/公斤）
+    #       vc = 品种编码（来自 /product/homeWholesaleProduct/selectTree 水果分支）
+    {"key": "苹果",   "en": "Apple",  "category": "水果", "unit": "元/公斤", "vc": "AF01001",
+     "ref_price": 8.0,  "as_of": "2026-08-01"},
+    {"key": "柑橘类", "en": "Citrus", "category": "水果", "unit": "元/公斤", "vc": "AF05001",
+     "ref_price": 6.0,  "as_of": "2026-08-01"},
+    {"key": "梨",     "en": "Pear",   "category": "水果", "unit": "元/公斤", "vc": "AF01002",
+     "ref_price": 5.0,  "as_of": "2026-08-01"},
+    {"key": "桃",     "en": "Peach",  "category": "水果", "unit": "元/公斤", "vc": "AF03001",
+     "ref_price": 8.0,  "as_of": "2026-08-01"},
+    {"key": "李子",   "en": "Plum",   "category": "水果", "unit": "元/公斤", "vc": "AF03002",
+     "ref_price": 5.0,  "as_of": "2026-08-01"},
 ]
 
 # 注：不再构造任何合成/代理指数。水果价格只使用真实来源：苹果(新浪期货) + 农业农村部官方水果价格指数。
@@ -174,6 +188,52 @@ def fetch_moa_fruit_index():
         return None
     except Exception as e:
         log(f"农业农村部水果指数抓取失败: {e}")
+        return None
+
+
+# ── 水果批发价：农业农村部「全国重点农产品市场信息平台」(ncpscxx.moa.gov.cn) ──
+# 免登录公开接口：POST /product/homeWholesalePrice/selectWholesalePriceChart?varietyCode=xxx
+# 返回 data 为 AES-256-CBC 密文（iv=前16字符, key 固定32字节, 密文=第17字符起 base64），
+# 解密后 {"date":..., "x":[市场名], "y":[价格 元/公斤]}。取全国市场中位数作为当日价。
+_NCPSXX_BASE = "https://ncpscxx.moa.gov.cn"
+_AES_KEY = b"7s9K$pG2xQ8zR5mB7vA3sD9fH2jW40cV"   # 前端硬编码密钥（UTF-8, 32 字节）
+
+
+def _decrypt_aes(data: str):
+    """解密前端 CryptoJS AES.decrypt 结果（AES-256-CBC / PKCS7）。"""
+    if not data:
+        return None
+    iv = data[:16].encode("utf-8")                      # 密文前 16 字符为 IV
+    ct = base64.b64decode(data[16:])                    # 其后是 base64 密文
+    decryptor = Cipher(algorithms.AES(_AES_KEY), modes.CBC(iv)).decryptor()
+    padded = decryptor.update(ct) + decryptor.finalize()
+    unpadder = PKCS7(128).unpadder()
+    plain = unpadder.update(padded) + unpadder.finalize()
+    return plain.decode("utf-8")
+
+
+def fetch_ncpscxx_fruit(variety_code: str):
+    """返回 (median, mean, n_markets, date) 或 None。农业农村部真实批发价（元/公斤）。"""
+    try:
+        r = requests.post(
+            _NCPSXX_BASE + "/product/homeWholesalePrice/selectWholesalePriceChart",
+            params={"varietyCode": variety_code},
+            headers={**HEADERS, "Referer": _NCPSXX_BASE + "/queryDataMain/wholesalePrice"},
+            timeout=20,
+        )
+        r.raise_for_status()
+        d = r.json()
+        if d.get("code") != 0 or not d.get("data"):
+            log(f"ncpscxx 水果 {variety_code}: 接口返回空")
+            return None
+        obj = json.loads(_decrypt_aes(d["data"]))
+        ys = [float(v) for v in obj.get("y", []) if v not in (None, "")]
+        if not ys:
+            return None
+        return (round(statistics.median(ys), 2), round(statistics.mean(ys), 2),
+                len(ys), (obj.get("date") or "")[:10])
+    except Exception as e:
+        log(f"ncpscxx 水果 {variety_code} 抓取失败: {e}")
         return None
 
 
@@ -281,9 +341,9 @@ def fetch_100ppi():
 def collect():
     records = []
 
-    # 1) 期货实时（新浪主连：UR0 尿素 / AP0 苹果）
+    # 1) 期货实时（新浪主连：UR0 尿素）
     futures_res = {}
-    for sym, fn in (("UR0", fetch_urea_sina), ("AP0", fetch_apple_sina)):
+    for sym, fn in (("UR0", fetch_urea_sina),):
         try:
             res = fn()
             if res:
@@ -299,6 +359,29 @@ def collect():
 
     for t in TARGETS:
         key = t["key"]
+        # 水果批发价（ncpscxx 免登录真实数据，单位 元/公斤）
+        if t.get("vc"):
+            fr = fetch_ncpscxx_fruit(t["vc"])
+            if fr:
+                median, mean, n, idate = fr
+                records.append({
+                    "item": key, "en": t["en"], "category": t["category"],
+                    "price": median, "unit": t["unit"],
+                    "source": "live-moa",
+                    "provider": f"农业农村部批发价(全国{n}市场中位/均{mean})",
+                    "as_of": idate,
+                    "scrape_time": ISO_TIME,
+                })
+                log(f"ncpscxx {key}: 中位 {median} 元/公斤 (全国{n}市场, 日均{mean}, {idate})")
+            else:
+                records.append({
+                    "item": key, "en": t["en"], "category": t["category"],
+                    "price": t["ref_price"], "unit": t["unit"],
+                    "source": "reference", "as_of": t["as_of"],
+                    "scrape_time": ISO_TIME,
+                })
+                log(f"ncpscxx {key}: 抓取失败，回退参考价 {t['ref_price']} 元/公斤")
+            continue
         # 期货实时品种
         fut = t.get("futures")
         if fut and fut in futures_res:
@@ -469,10 +552,15 @@ def make_png(data):
             ys = [p for _, p in pts]
             ax.plot(xs, ys, marker="o", label=en_of.get(item, item),
                     color=colors[i % len(colors)])
-        title = f"{cat} price (CNY/ton)" if cat != "指数" else "Price index (MOA official)"
+        if cat == "水果":
+            title, ylabel = "Fruit wholesale price (CNY/kg)", "CNY/kg"
+        elif cat == "指数":
+            title, ylabel = "Price index (MOA official)", "Index"
+        else:
+            title, ylabel = f"{cat} price (CNY/ton)", "CNY/ton"
         ax.set_title(title)
         ax.set_xlabel("Date")
-        ax.set_ylabel("Price" if cat != "指数" else "Index")
+        ax.set_ylabel(ylabel)
         ax.legend(fontsize=8)
         ax.grid(True, alpha=0.3)
         if cat == "农药":
