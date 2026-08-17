@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>农化价格监控看板</title>
+<title>农化·农产品价格监控看板</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
   :root { color-scheme: light; }
@@ -37,7 +37,7 @@
 </head>
 <body>
 <header>
-  <h1>🌱 农化价格监控看板</h1>
+  <h1>🌱 农化·农产品价格监控看板</h1>
   <p id="subtitle">加载中…</p>
 </header>
 
@@ -55,6 +55,16 @@
   </div>
 
   <div class="panel">
+    <h2>水果价格走势</h2>
+    <canvas id="chartFruit"></canvas>
+  </div>
+
+  <div class="panel">
+    <h2>全国水果价格指数（代理，基准=100）</h2>
+    <canvas id="chartIdx"></canvas>
+  </div>
+
+  <div class="panel">
     <h2>今日明细</h2>
     <table id="table">
       <thead><tr><th>品种</th><th>类别</th><th>价格</th><th>单位</th><th>来源</th><th>日期</th></tr></thead>
@@ -64,7 +74,7 @@
 </div>
 
 <script>
-const EMBEDDED_DATA = {"last_updated": "2026-08-17T05:45:23Z", "history": {"2026-08-17": [{"item": "尿素", "en": "Urea", "category": "化肥", "price": 1687.0, "unit": "元/吨", "source": "live", "provider": "新浪期货 UR0", "scrape_time": "2026-08-17T05:45:23Z"}, {"item": "磷酸一铵", "en": "MAP", "category": "化肥", "price": 7150.0, "unit": "元/吨", "source": "live-100ppi", "provider": "生意社报价中心(2026-08-17)", "scrape_time": "2026-08-17T05:45:23Z"}, {"item": "磷酸二铵", "en": "DAP", "category": "化肥", "price": 8900.0, "unit": "元/吨", "source": "live-100ppi", "provider": "生意社报价中心(2026-08-17)", "scrape_time": "2026-08-17T05:45:23Z"}, {"item": "氯化钾", "en": "KCl", "category": "化肥", "price": 3050.0, "unit": "元/吨", "source": "live-100ppi", "provider": "生意社报价中心(2026-08-17)", "scrape_time": "2026-08-17T05:45:23Z"}, {"item": "硫酸钾", "en": "SOP", "category": "化肥", "price": 4400.0, "unit": "元/吨", "source": "live-100ppi", "provider": "生意社报价中心(2026-08-17)", "scrape_time": "2026-08-17T05:45:23Z"}, {"item": "复合肥", "en": "NPK", "category": "化肥", "price": 2800, "unit": "元/吨", "source": "reference", "as_of": "2026-08-01", "scrape_time": "2026-08-17T05:45:23Z"}, {"item": "草甘膦", "en": "Glyphosate", "category": "农药", "price": 26000, "unit": "元/吨", "source": "reference", "as_of": "2026-08-01", "scrape_time": "2026-08-17T05:45:23Z"}, {"item": "吡虫啉", "en": "Imidacloprid", "category": "农药", "price": 75000, "unit": "元/吨", "source": "reference", "as_of": "2026-08-01", "scrape_time": "2026-08-17T05:45:23Z"}, {"item": "多菌灵", "en": "Carbendazim", "category": "农药", "price": 40000.0, "unit": "元/吨", "source": "live-100ppi", "provider": "生意社报价中心(2026-08-14)", "scrape_time": "2026-08-17T05:45:23Z"}, {"item": "阿维菌素", "en": "Abamectin", "category": "农药", "price": 480000, "unit": "元/吨", "source": "reference", "as_of": "2026-08-01", "scrape_time": "2026-08-17T05:45:23Z"}]}};
+const EMBEDDED_DATA = {"last_updated": "2026-08-17T07:39:10Z", "history": {"2026-08-17": [{"item": "尿素", "en": "Urea", "category": "化肥", "price": 1687.0, "unit": "元/吨", "source": "live", "provider": "新浪期货 UR0", "scrape_time": "2026-08-17T07:39:10Z"}, {"item": "磷酸一铵", "en": "MAP", "category": "化肥", "price": 7150.0, "unit": "元/吨", "source": "live-100ppi", "provider": "生意社报价中心(2026-08-17)", "scrape_time": "2026-08-17T07:39:10Z"}, {"item": "磷酸二铵", "en": "DAP", "category": "化肥", "price": 8900.0, "unit": "元/吨", "source": "live-100ppi", "provider": "生意社报价中心(2026-08-17)", "scrape_time": "2026-08-17T07:39:10Z"}, {"item": "氯化钾", "en": "KCl", "category": "化肥", "price": 3050.0, "unit": "元/吨", "source": "live-100ppi", "provider": "生意社报价中心(2026-08-17)", "scrape_time": "2026-08-17T07:39:10Z"}, {"item": "硫酸钾", "en": "SOP", "category": "化肥", "price": 4400.0, "unit": "元/吨", "source": "live-100ppi", "provider": "生意社报价中心(2026-08-17)", "scrape_time": "2026-08-17T07:39:10Z"}, {"item": "复合肥", "en": "NPK", "category": "化肥", "price": 2800, "unit": "元/吨", "source": "reference", "as_of": "2026-08-01", "scrape_time": "2026-08-17T07:39:10Z"}, {"item": "草甘膦", "en": "Glyphosate", "category": "农药", "price": 26000, "unit": "元/吨", "source": "reference", "as_of": "2026-08-01", "scrape_time": "2026-08-17T07:39:10Z"}, {"item": "吡虫啉", "en": "Imidacloprid", "category": "农药", "price": 75000, "unit": "元/吨", "source": "reference", "as_of": "2026-08-01", "scrape_time": "2026-08-17T07:39:10Z"}, {"item": "多菌灵", "en": "Carbendazim", "category": "农药", "price": 40000.0, "unit": "元/吨", "source": "live-100ppi", "provider": "生意社报价中心(2026-08-14)", "scrape_time": "2026-08-17T07:39:10Z"}, {"item": "阿维菌素", "en": "Abamectin", "category": "农药", "price": 480000, "unit": "元/吨", "source": "reference", "as_of": "2026-08-01", "scrape_time": "2026-08-17T07:39:10Z"}, {"item": "苹果", "en": "Apple", "category": "水果", "price": 7829.0, "unit": "元/吨", "source": "live", "provider": "新浪期货 AP0", "scrape_time": "2026-08-17T07:39:10Z"}, {"item": "柑橘类", "en": "Citrus", "category": "水果", "price": 7000, "unit": "元/吨", "source": "reference", "as_of": "2026-08-01", "scrape_time": "2026-08-17T07:39:10Z", "note": "暂无免费日度源"}, {"item": "梨", "en": "Pear", "category": "水果", "price": 5000, "unit": "元/吨", "source": "reference", "as_of": "2026-08-01", "scrape_time": "2026-08-17T07:39:10Z", "note": "暂无免费日度源"}, {"item": "桃", "en": "Peach", "category": "水果", "price": 8000, "unit": "元/吨", "source": "reference", "as_of": "2026-08-01", "scrape_time": "2026-08-17T07:39:10Z", "note": "暂无免费日度源"}, {"item": "李子", "en": "Plum", "category": "水果", "price": 10000, "unit": "元/吨", "source": "reference", "as_of": "2026-08-01", "scrape_time": "2026-08-17T07:39:10Z", "note": "暂无免费日度源"}, {"item": "全国水果价格指数(代理)", "en": "FruitIdx", "category": "水果", "price": 100.07, "unit": "指数(基准100)", "source": "derived", "provider": "由代表品种构造(苹果期货+参考价)；官方指数需农业农村部API鉴权", "scrape_time": "2026-08-17T07:39:10Z"}]}};
 
 function buildSeries(data) {
   const series = {};
@@ -88,11 +98,12 @@ function render() {
   cards.innerHTML = "";
   for (const r of latest) {
     const isLive = r.source && r.source.startsWith("live");
+    const isDerived = r.source === "derived";
     const div = document.createElement("div");
     div.className = "card " + (isLive ? "live" : "ref");
-    const meta = isLive
-      ? (r.provider || "实时")
-      : ("参考价 " + (r.as_of || ""));
+    const meta = isLive ? (r.provider || "实时")
+      : isDerived ? (r.provider || "代理指数")
+      : ("参考价 " + (r.as_of || "") + (r.note ? " · " + r.note : ""));
     div.innerHTML = `<div class="name">${r.item}</div>
       <div class="price">${Number(r.price).toLocaleString()}</div>
       <div class="meta">${r.unit} · ${meta}</div>`;
@@ -103,6 +114,8 @@ function render() {
   const series = buildSeries(data);
   const fertItems = latest.filter(r => r.category === "化肥").map(r => r.item);
   const pestItems = latest.filter(r => r.category === "农药").map(r => r.item);
+  const fruitItems = latest.filter(r => r.category === "水果" && !r.item.includes("指数")).map(r => r.item);
+  const idxItems = latest.filter(r => r.item.includes("指数")).map(r => r.item);
   const palette = ["#2e7d32","#558b2f","#1565c0","#6a1b9a","#ad1457","#ef6c00","#00838f","#4527a0","#c62828","#558b2f"];
 
   function unionDates(items) {
@@ -115,7 +128,7 @@ function render() {
     (series[item] || []).forEach(p => { m[p.x] = p.y; });
     return labels.map(l => (l in m ? m[l] : null));
   }
-  function makeChart(canvasId, items, logScale) {
+  function makeChart(canvasId, items, logScale, yTitle) {
     const labels = unionDates(items);
     const datasets = items.map((item, i) => ({
       label: item,
@@ -134,24 +147,31 @@ function render() {
           x: { type: "category", title: { display: true, text: "日期" },
                ticks: { maxTicksLimit: 12, autoSkip: true } },
           y: { type: logScale ? "logarithmic" : "linear",
-               title: { display: true, text: "元/吨" } }
+               title: { display: true, text: yTitle || "元/吨" } }
         },
         plugins: { legend: { position: "bottom", labels: { boxWidth: 12, font: { size: 11 } } } }
       }
     });
   }
-  makeChart("chartFert", fertItems, false);
-  makeChart("chartPest", pestItems, true);
+  makeChart("chartFert", fertItems, false, "元/吨");
+  makeChart("chartPest", pestItems, true, "元/吨");
+  makeChart("chartFruit", fruitItems, false, "元/吨");
+  makeChart("chartIdx", idxItems, false, "指数(基准100)");
 
   // 表格
   const tbody = document.querySelector("#table tbody");
   tbody.innerHTML = "";
   for (const r of latest) {
     const isLive = r.source && r.source.startsWith("live");
+    const isDerived = r.source === "derived";
     const tr = document.createElement("tr");
+    let tagClass = "ref", tagText;
+    if (isLive) { tagClass = "live"; tagText = (r.provider || "实时"); }
+    else if (isDerived) { tagText = (r.provider || "代理指数"); }
+    else { tagText = "参考" + (r.as_of ? " " + r.as_of : "") + (r.note ? " · " + r.note : ""); }
     tr.innerHTML = `<td>${r.item}</td><td>${r.category}</td>
       <td>${Number(r.price).toLocaleString()}</td><td>${r.unit}</td>
-      <td><span class="tag ${isLive ? "live" : "ref"}">${isLive ? (r.provider||"实时") : "参考 "+ (r.as_of||"")}</span></td>
+      <td><span class="tag ${tagClass}">${tagText}</span></td>
       <td>${dates[dates.length-1]}</td>`;
     tbody.appendChild(tr);
   }

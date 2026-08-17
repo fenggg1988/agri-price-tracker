@@ -2,16 +2,22 @@
 """
 农化价格监控器 (AgriChem Price Tracker) — 每日时间序列采集器
 
-监控两大类农化生产资料的市场方向：
+监控三大类生产资料/农产品的市场方向：
   · 化肥 (Fertilizer) : 尿素、磷酸一铵、磷酸二铵、氯化钾、硫酸钾、复合肥
   · 农药 (Pesticide)  : 草甘膦、吡虫啉、多菌灵、阿维菌素
+  · 水果 (Fruit)      : 苹果(期货实时)、柑橘类、梨、桃、李子 + 全国水果价格指数(代理)
 
 数据源策略：
-  · 尿素   —— 实时抓取（新浪期货 UR 主连 UR0，免费、无鉴权、稳定），source="live"
-  · 其余   —— 生意社报价中心现货价（Playwright 真实浏览器渲染，过基础反爬），
+  · 尿素/苹果 —— 实时抓取（新浪期货 UR0 / AP0 主连，免费、无鉴权、稳定），source="live"
+  · 其余化肥/农药 —— 生意社报价中心现货价（Playwright 真实浏览器渲染，过基础反爬），
              取当日多家报价的中位数，source="live-100ppi"；
              单个品种不可达时回退到 TARGETS 中人工维护的参考价（source="reference"）。
   · 吡虫啉 —— 生意社报价中心暂无该品种报价，固定使用参考价兜底（已核实无数据源）。
+  · 柑橘类/梨/桃/李子 —— 生意社/农业农村部均无免费日度鲜果数据源（已实测：生意社只有化工品、
+             农业农村部官方指数 API 需鉴权 401），暂用参考价占位（source="reference"，
+             标注"暂无免费日度源"），可由用户在 TARGETS 中更新或在拿到官方 API token 后替换。
+  · 全国水果价格指数(代理) —— 由监控水果归一化均值构造的方向性指数（基准100），
+             弥补官方指数不可免费抓取；source="derived"。
 
 输出：
   data/agri_prices.json  —— 按 YYYY-MM-DD 键值的完整历史
@@ -72,11 +78,12 @@ HEADERS = {
 
 # ── 目标品种 ────────────────────────────────────────────────────────────────
 # pid      : 生意社报价中心产品页 ID（mprice/plist-1-{pid}-1.html）；None=无实时源
+# futures  : 新浪期货主连代码（UR0/AP0 等）；存在时优先走期货实时，失败回退参考价
 # ref_price: 参考价（元/吨），仅当实时抓取不可达时兜底；as_of 为核定日期
 TARGETS = [
     # 化肥
     {"key": "尿素",     "en": "Urea",         "category": "化肥", "unit": "元/吨",
-     "pid": None,  "ref_price": 2200, "as_of": "2026-08-14"},
+     "pid": None, "futures": "UR0", "ref_price": 2200, "as_of": "2026-08-14"},
     {"key": "磷酸一铵", "en": "MAP",          "category": "化肥", "unit": "元/吨",
      "pid": 926,   "ref_price": 3350, "as_of": "2026-08-01"},
     {"key": "磷酸二铵", "en": "DAP",          "category": "化肥", "unit": "元/吨",
@@ -96,7 +103,23 @@ TARGETS = [
      "pid": 1453,  "ref_price": 35000, "as_of": "2026-08-01"},
     {"key": "阿维菌素", "en": "Abamectin",    "category": "农药", "unit": "元/吨",
      "pid": 1312,  "ref_price": 480000, "as_of": "2026-08-01"},
+    # 水果
+    {"key": "苹果",     "en": "Apple",        "category": "水果", "unit": "元/吨",
+     "pid": None, "futures": "AP0", "ref_price": 7800, "as_of": "2026-08-14"},
+    {"key": "柑橘类",   "en": "Citrus",       "category": "水果", "unit": "元/吨",
+     "pid": None, "ref_price": 7000, "as_of": "2026-08-01"},   # 生意社无鲜果数据，参考价占位
+    {"key": "梨",       "en": "Pear",         "category": "水果", "unit": "元/吨",
+     "pid": None, "ref_price": 5000, "as_of": "2026-08-01"},   # 同上
+    {"key": "桃",       "en": "Peach",        "category": "水果", "unit": "元/吨",
+     "pid": None, "ref_price": 8000, "as_of": "2026-08-01"},   # 同上
+    {"key": "李子",     "en": "Plum",         "category": "水果", "unit": "元/吨",
+     "pid": None, "ref_price": 10000, "as_of": "2026-08-01"},  # 同上
 ]
+
+# 水果代理指数基线（元/吨）：用于构造"全国水果价格指数(代理)"，基准=100；可按需调整
+FRUIT_BASELINE = {
+    "苹果": 7800, "柑橘类": 7000, "梨": 5000, "桃": 8000, "李子": 10000,
+}
 
 
 def log(msg: str) -> None:
@@ -115,6 +138,19 @@ def fetch_urea_sina():
     """返回 (price, date) 或 None。UR0 = 郑商所尿素期货主连，元/吨。"""
     url = ("https://stock2.finance.sina.com.cn/futures/api/json.php/"
            "InnerFuturesNewService.getDailyKLine?symbol=UR0")
+    r = requests.get(url, headers=HEADERS, timeout=20)
+    r.raise_for_status()
+    bars = r.json()
+    if not bars:
+        return None
+    last = bars[-1]
+    return float(last["c"]), last["d"]
+
+
+def fetch_apple_sina():
+    """返回 (price, date) 或 None。AP0 = 郑商所苹果期货主连，元/吨。"""
+    url = ("https://stock2.finance.sina.com.cn/futures/api/json.php/"
+           "InnerFuturesNewService.getDailyKLine?symbol=AP0")
     r = requests.get(url, headers=HEADERS, timeout=20)
     r.raise_for_status()
     bars = r.json()
@@ -228,31 +264,36 @@ def fetch_100ppi():
 def collect():
     records = []
 
-    # 1) 尿素：实时（新浪期货）
-    urea_live = None
-    try:
-        res = fetch_urea_sina()
-        if res:
-            urea_live, urea_date = res
-            log(f"新浪期货 尿素UR0: {urea_live} 元/吨 (行情日 {urea_date})")
-        else:
-            log("新浪期货 尿素UR0: 无数据")
-    except Exception as e:
-        log(f"新浪期货 尿素UR0 抓取失败: {e}")
+    # 1) 期货实时（新浪主连：UR0 尿素 / AP0 苹果）
+    futures_res = {}
+    for sym, fn in (("UR0", fetch_urea_sina), ("AP0", fetch_apple_sina)):
+        try:
+            res = fn()
+            if res:
+                futures_res[sym] = res
+                log(f"新浪期货 {sym}: {res[0]} 元/吨 (行情日 {res[1]})")
+            else:
+                log(f"新浪期货 {sym}: 无数据")
+        except Exception as e:
+            log(f"新浪期货 {sym} 抓取失败: {e}")
 
     # 2) 生意社现货价（真实浏览器）
     spot = fetch_100ppi()
 
     for t in TARGETS:
         key = t["key"]
-        if key == "尿素" and urea_live is not None:
+        # 期货实时品种
+        fut = t.get("futures")
+        if fut and fut in futures_res:
+            price, fdate = futures_res[fut]
             records.append({
                 "item": key, "en": t["en"], "category": t["category"],
-                "price": round(urea_live, 2), "unit": t["unit"],
-                "source": "live", "provider": "新浪期货 UR0",
+                "price": round(price, 2), "unit": t["unit"],
+                "source": "live", "provider": f"新浪期货 {fut}",
                 "scrape_time": ISO_TIME,
             })
             continue
+        # 生意社现货
         if key in spot:
             price, unit, date = spot[key]
             records.append({
@@ -262,12 +303,28 @@ def collect():
                 "scrape_time": ISO_TIME,
             })
         else:
-            records.append({
+            note = "暂无免费日度源" if t["category"] == "水果" else ""
+            rec = {
                 "item": key, "en": t["en"], "category": t["category"],
                 "price": t["ref_price"], "unit": t["unit"],
                 "source": "reference", "as_of": t["as_of"],
                 "scrape_time": ISO_TIME,
-            })
+            }
+            if note:
+                rec["note"] = note
+            records.append(rec)
+
+    # 3) 全国水果价格指数（代理）：用监控水果归一化均值构造方向性指数（基准100）
+    fruit_recs = [r for r in records if r["category"] == "水果" and r["item"] in FRUIT_BASELINE]
+    if fruit_recs:
+        idx = sum(r["price"] / FRUIT_BASELINE[r["item"]] for r in fruit_recs) / len(fruit_recs) * 100
+        records.append({
+            "item": "全国水果价格指数(代理)", "en": "FruitIdx", "category": "水果",
+            "price": round(idx, 2), "unit": "指数(基准100)",
+            "source": "derived",
+            "provider": "由代表品种构造(苹果期货+参考价)；官方指数需农业农村部API鉴权",
+            "scrape_time": ISO_TIME,
+        })
     return records
 
 
@@ -359,37 +416,62 @@ def make_png(data):
         for r in recs:
             cat_of[r["item"]] = r["category"]
             en_of[r["item"]] = r.get("en", r["item"])
-    cats = {"化肥": [], "农药": []}
+
+    # 价格类（元/吨）按类别分组；指数类（单位含"指数"）单列一图
+    price_cats = {}
+    index_series = []
     for item, pts in series.items():
-        cat = cat_of.get(item, "化肥")
-        if cat in cats:
-            cats[cat].append((item, pts))
+        if "指数" in (cat_of.get(item, "")) or "指数" in str(r_unit(data, item)):
+            index_series.append((item, pts))
+        else:
+            cat = cat_of.get(item, "其他")
+            price_cats.setdefault(cat, []).append((item, pts))
+
+    charts = []
+    for cat, items in price_cats.items():
+        if items:
+            charts.append((cat, items, False))
+    if index_series:
+        charts.append(("指数", index_series, False))
+
+    if not charts:
+        log("WARN: 无可用序列，跳过 PNG 生成")
+        return
 
     # matplotlib 默认字体不含中文，PNG 统一用英文标签（看板 HTML 用中文）。
-    fig, axes = plt.subplots(2, 1, figsize=(11, 9))
+    fig, axes = plt.subplots(len(charts), 1, figsize=(11, 4.2 * len(charts)),
+                             squeeze=False)
     colors = plt.cm.tab10.colors
-    for ax, (cat, items) in zip(axes, cats.items()):
+    for ax, (cat, items, _log) in zip(axes[:, 0], charts):
         for i, (item, pts) in enumerate(items):
             xs = [_dt.strptime(d, "%Y-%m-%d") for d, _ in pts]
             ys = [p for _, p in pts]
             ax.plot(xs, ys, marker="o", label=en_of.get(item, item),
                     color=colors[i % len(colors)])
-        title = "Fertilizer price (CNY/ton)" if cat == "化肥" \
-            else "Pesticide price (CNY/ton, log scale)"
+        title = f"{cat} price (CNY/ton)" if cat != "指数" else "Fruit price index (base=100)"
         ax.set_title(title)
         ax.set_xlabel("Date")
-        ax.set_ylabel("Price")
+        ax.set_ylabel("Price" if cat != "指数" else "Index")
         ax.legend(fontsize=8)
         ax.grid(True, alpha=0.3)
         if cat == "农药":
             ax.set_yscale("log")
         ax.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d"))
         fig.autofmt_xdate()
-    fig.suptitle(f"AgriChem Price Monitor · updated {TODAY}", fontsize=14)
+    fig.suptitle(f"Agri Price Monitor · updated {TODAY}", fontsize=14)
     fig.tight_layout(rect=[0, 0, 1, 0.97])
     fig.savefig(PNG_FILE, dpi=110)
     plt.close(fig)
     log(f"已生成 {PNG_FILE.name}")
+
+
+def r_unit(data, item):
+    """辅助：取某品种最新记录的单位（用于 make_png 判断指数类）。"""
+    for date in sorted(data["history"].keys(), reverse=True):
+        for r in data["history"][date]:
+            if r["item"] == item:
+                return r.get("unit", "")
+    return ""
 
 
 # ── 主流程 ────────────────────────────────────────────────────────────────
