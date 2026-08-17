@@ -6,10 +6,12 @@
   · 化肥 (Fertilizer) : 尿素、磷酸一铵、磷酸二铵、氯化钾、硫酸钾、复合肥
   · 农药 (Pesticide)  : 草甘膦、吡虫啉、多菌灵、阿维菌素
 
-数据来源策略（对齐 gpu-price-tracker 的 live + reference 模式）：
-  · 尿素 —— 实时抓取（新浪期货 UR 主连 UR0，免费、无鉴权、稳定），source="live"
-  · 其余品种 —— 优先尝试生意社报价中心现货价（best-effort，可达时 source="live-100ppi"）；
-               不可达时回退到 TARGETS 中人工维护的参考价（source="reference"，带 as_of 日期）。
+数据源策略：
+  · 尿素   —— 实时抓取（新浪期货 UR 主连 UR0，免费、无鉴权、稳定），source="live"
+  · 其余   —— 生意社报价中心现货价（Playwright 真实浏览器渲染，过基础反爬），
+             取当日多家报价的中位数，source="live-100ppi"；
+             单个品种不可达时回退到 TARGETS 中人工维护的参考价（source="reference"）。
+  · 吡虫啉 —— 生意社报价中心暂无该品种报价，固定使用参考价兜底（已核实无数据源）。
 
 输出：
   data/agri_prices.json  —— 按 YYYY-MM-DD 键值的完整历史
@@ -22,10 +24,13 @@
 """
 
 import io
+import os
+import re
 import csv
 import json
 import sys
 import time
+import statistics
 import traceback
 from datetime import datetime, timezone
 from pathlib import Path
@@ -37,6 +42,13 @@ if sys.stdout.encoding != "utf-8":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 if sys.stderr.encoding != "utf-8":
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
+
+# Playwright（真实浏览器渲染，用于过生意社基础反爬）。缺失时自动降级为参考价。
+try:
+    from playwright.sync_api import sync_playwright
+    HAVE_PW = True
+except Exception:
+    HAVE_PW = False
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 DATA_DIR = SCRIPT_DIR / "data"
@@ -59,32 +71,31 @@ HEADERS = {
 }
 
 # ── 目标品种 ────────────────────────────────────────────────────────────────
-# price 为参考价（元/吨），仅当 live 抓取失败且生意社不可达时作为兜底；
-# as_of 是该参考价的核定日期，请定期核对更新。
-# aliases 用于从生意社报价中心文本中模糊匹配现货价。
+# pid      : 生意社报价中心产品页 ID（mprice/plist-1-{pid}-1.html）；None=无实时源
+# ref_price: 参考价（元/吨），仅当实时抓取不可达时兜底；as_of 为核定日期
 TARGETS = [
     # 化肥
-    {"key": "尿素",       "en": "Urea",        "category": "化肥", "unit": "元/吨",
-     "ref_price": 1687, "as_of": "2026-08-14", "aliases": ["尿素"]},
-    {"key": "磷酸一铵",   "en": "MAP",          "category": "化肥", "unit": "元/吨",
-     "ref_price": 3300, "as_of": "2026-08-01", "aliases": ["磷酸一铵", "一铵", "MAP"]},
-    {"key": "磷酸二铵",   "en": "DAP",          "category": "化肥", "unit": "元/吨",
-     "ref_price": 3700, "as_of": "2026-08-01", "aliases": ["磷酸二铵", "二铵", "DAP"]},
-    {"key": "氯化钾",     "en": "KCl",          "category": "化肥", "unit": "元/吨",
-     "ref_price": 2500, "as_of": "2026-08-01", "aliases": ["氯化钾", "钾肥"]},
-    {"key": "硫酸钾",     "en": "SOP",          "category": "化肥", "unit": "元/吨",
-     "ref_price": 3200, "as_of": "2026-08-01", "aliases": ["硫酸钾"]},
-    {"key": "复合肥",     "en": "NPK",          "category": "化肥", "unit": "元/吨",
-     "ref_price": 2700, "as_of": "2026-08-01", "aliases": ["复合肥", "复合肥料", "NPK"]},
+    {"key": "尿素",     "en": "Urea",         "category": "化肥", "unit": "元/吨",
+     "pid": None,  "ref_price": 2200, "as_of": "2026-08-14"},
+    {"key": "磷酸一铵", "en": "MAP",          "category": "化肥", "unit": "元/吨",
+     "pid": 926,   "ref_price": 3350, "as_of": "2026-08-01"},
+    {"key": "磷酸二铵", "en": "DAP",          "category": "化肥", "unit": "元/吨",
+     "pid": 516,   "ref_price": 3750, "as_of": "2026-08-01"},
+    {"key": "氯化钾",   "en": "KCl",          "category": "化肥", "unit": "元/吨",
+     "pid": 927,   "ref_price": 2600, "as_of": "2026-08-01"},
+    {"key": "硫酸钾",   "en": "SOP",          "category": "化肥", "unit": "元/吨",
+     "pid": 1640,  "ref_price": 3500, "as_of": "2026-08-01"},
+    {"key": "复合肥",   "en": "NPK",          "category": "化肥", "unit": "元/吨",
+     "pid": 842,   "ref_price": 2800, "as_of": "2026-08-01"},
     # 农药
-    {"key": "草甘膦",     "en": "Glyphosate",   "category": "农药", "unit": "元/吨",
-     "ref_price": 26000, "as_of": "2026-08-01", "aliases": ["草甘膦", "glyphosate"]},
-    {"key": "吡虫啉",     "en": "Imidacloprid", "category": "农药", "unit": "元/吨",
-     "ref_price": 75000, "as_of": "2026-08-01", "aliases": ["吡虫啉"]},
-    {"key": "多菌灵",     "en": "Carbendazim",  "category": "农药", "unit": "元/吨",
-     "ref_price": 35000, "as_of": "2026-08-01", "aliases": ["多菌灵"]},
-    {"key": "阿维菌素",   "en": "Abamectin",    "category": "农药", "unit": "元/吨",
-     "ref_price": 480000, "as_of": "2026-08-01", "aliases": ["阿维菌素"]},
+    {"key": "草甘膦",   "en": "Glyphosate",   "category": "农药", "unit": "元/吨",
+     "pid": 1446,  "ref_price": 26000, "as_of": "2026-08-01"},
+    {"key": "吡虫啉",   "en": "Imidacloprid", "category": "农药", "unit": "元/吨",
+     "pid": None,  "ref_price": 75000, "as_of": "2026-08-01"},   # 生意社无该品种报价
+    {"key": "多菌灵",   "en": "Carbendazim",  "category": "农药", "unit": "元/吨",
+     "pid": 1453,  "ref_price": 35000, "as_of": "2026-08-01"},
+    {"key": "阿维菌素", "en": "Abamectin",    "category": "农药", "unit": "元/吨",
+     "pid": 1312,  "ref_price": 480000, "as_of": "2026-08-01"},
 ]
 
 
@@ -113,47 +124,103 @@ def fetch_urea_sina():
     return float(last["c"]), last["d"]
 
 
-# ── best-effort 抓取：生意社报价中心现货价 ────────────────────────────────
+# ── 真实浏览器抓取：生意社报价中心现货价 ──────────────────────────────────
 
-def fetch_100ppi_quotes():
-    """返回 {品种key: 现货价} 字典；不可达时返回空 dict。best-effort。"""
-    from bs4 import BeautifulSoup
+def _launch_browser(p):
+    """优先复用本机已装 Chrome/Edge（避免下载 chromium），否则用 playwright 自带。"""
+    candidates = []
+    env = os.environ.get("CHROME_PATH")
+    if env:
+        candidates.append(env)
+    candidates += [
+        r"C:/Program Files/Google/Chrome/Application/chrome.exe",
+        r"C:/Program Files (x86)/Google/Chrome/Application/chrome.exe",
+        r"C:/Program Files/Microsoft/Edge/Application/msedge.exe",
+        r"C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe",
+    ]
+    for c in candidates:
+        if c and os.path.exists(c):
+            try:
+                return p.chromium.launch(headless=True, executable_path=c,
+                                         args=["--no-sandbox", "--disable-dev-shm-usage"])
+            except Exception:
+                continue
+    # 回退：playwright 自带 chromium（需先 `playwright install chromium`）
+    return p.chromium.launch(headless=True, args=["--no-sandbox", "--disable-dev-shm-usage"])
+
+
+def _parse_ppi_page(page, key):
+    """解析报价表，返回 [(归一化到元/吨的价格, 单位文本, 日期), ...]"""
+    rows = page.query_selector_all("table tr")
+    out = []
+    for tr in rows:
+        tds = tr.query_selector_all("td")
+        if len(tds) < 4:
+            continue
+        cells = [td.inner_text().strip() for td in tds]
+        price_cell = date_cell = None
+        for c in cells:
+            if re.search(r"元/(吨|千克|kg|KG)", c):
+                price_cell = c
+            if re.match(r"\d{4}-\d{2}-\d{2}", c):
+                date_cell = c
+        if not price_cell or not date_cell:
+            continue
+        m = re.search(r"([\d,]+(?:\.\d+)?)\s*元/(吨|千克|kg|KG)", price_cell)
+        if not m:
+            continue
+        val = float(m.group(1).replace(",", ""))
+        unit = m.group(2).lower()
+        if unit in ("千克", "kg"):   # 归一化到 元/吨
+            val *= 1000
+        out.append((val, "元/吨", date_cell))
+    return out
+
+
+def fetch_100ppi():
+    """返回 {品种key: (price, unit, date)}；best-effort，失败品种不出现。"""
+    if not HAVE_PW:
+        log("Playwright 不可用，跳过生意社抓取（全程使用参考价）")
+        return {}
+    pids = {t["key"]: t["pid"] for t in TARGETS
+            if t.get("pid") and t["key"] != "尿素"}
+    if not pids:
+        return {}
+    result = {}
     try:
-        s = requests.Session()
-        s.get("https://www.100ppi.com/", headers=HEADERS, timeout=15)
-        page = None
-        for attempt in range(3):
-            resp = s.get("https://www.100ppi.com/price/", headers=HEADERS, timeout=20)
-            if resp.status_code == 200 and len(resp.content) > 5000:
-                page = resp.text
-                break
-            time.sleep(2)
-        if not page:
-            log("生意社报价中心不可达（被反爬拦截或超时），回退参考价")
-            return {}
-        soup = BeautifulSoup(page, "lxml")
-        # 拼接所有文本行，按品种名匹配
-        text = soup.get_text("\n")
-        found = {}
-        for t in TARGETS:
-            for alias in t["aliases"]:
-                # 在该行寻找别名，取其后紧跟的数字作为价格
-                idx = text.find(alias)
-                if idx != -1:
-                    tail = text[idx: idx + 120]
-                    nums = __import__("re").findall(r"(\d{3,7}(?:\.\d+)?)", tail)
-                    if nums:
-                        found[t["key"]] = float(nums[0])
+        with sync_playwright() as p:
+            browser = _launch_browser(p)
+            page = browser.new_page()
+            page.set_default_timeout(20000)
+            for key, pid in pids.items():
+                url = f"https://www.100ppi.com/mprice/plist-1-{pid}-1.html"
+                quotes = []
+                # 生意社对连续快速请求有限流/渲染时序问题，空结果则重试
+                for attempt in range(3):
+                    try:
+                        page.goto(url, wait_until="networkidle", timeout=25000)
+                    except Exception as e:
+                        log(f"生意社 {key} 加载失败(第{attempt+1}次): {e}")
+                        page.wait_for_timeout(3000)
+                        continue
+                    page.wait_for_timeout(2500)   # 等报价表 JS 渲染
+                    quotes = _parse_ppi_page(page, key)
+                    if quotes:
                         break
-        if found:
-            log(f"生意社现货价命中 {len(found)} 个品种: " +
-                ", ".join(f"{k}={v}" for k, v in found.items()))
-        else:
-            log("生意社页面已加载但未匹配到目标品种，回退参考价")
-        return found
+                    page.wait_for_timeout(4000)    # 空：可能限流，放慢再试
+                if quotes:
+                    price = round(statistics.median(q[0] for q in quotes), 2)
+                    date = quotes[0][2]
+                    result[key] = (price, "元/吨", date)
+                    log(f"生意社 {key}: 中位 {price:,.2f} 元/吨 "
+                        f"(样本{len(quotes)}, 日{date})")
+                else:
+                    log(f"生意社 {key}: 页面无报价（可能限流，已回退参考价）")
+                page.wait_for_timeout(1500)   # 页面之间留间隔，降低限流概率
+            browser.close()
     except Exception as e:
         log(f"生意社抓取异常: {e}")
-        return {}
+    return result
 
 
 # ── 采集 ───────────────────────────────────────────────────────────────────
@@ -161,7 +228,7 @@ def fetch_100ppi_quotes():
 def collect():
     records = []
 
-    # 1) 尿素：实时
+    # 1) 尿素：实时（新浪期货）
     urea_live = None
     try:
         res = fetch_urea_sina()
@@ -173,8 +240,8 @@ def collect():
     except Exception as e:
         log(f"新浪期货 尿素UR0 抓取失败: {e}")
 
-    # 2) 生意社现货价（best-effort）
-    spot = fetch_100ppi_quotes()
+    # 2) 生意社现货价（真实浏览器）
+    spot = fetch_100ppi()
 
     for t in TARGETS:
         key = t["key"]
@@ -186,12 +253,12 @@ def collect():
                 "scrape_time": ISO_TIME,
             })
             continue
-        # 优先生意社现货价
         if key in spot:
+            price, unit, date = spot[key]
             records.append({
                 "item": key, "en": t["en"], "category": t["category"],
-                "price": round(spot[key], 2), "unit": t["unit"],
-                "source": "live-100ppi", "provider": "生意社报价中心",
+                "price": price, "unit": unit,
+                "source": "live-100ppi", "provider": f"生意社报价中心({date})",
                 "scrape_time": ISO_TIME,
             })
         else:
@@ -261,7 +328,7 @@ def embed_in_html(data):
         return
     html = HTML_FILE.read_text(encoding="utf-8")
     payload = json.dumps(data, ensure_ascii=False)
-    pattern = __import__("re").compile(r"const\s+EMBEDDED_DATA\s*=\s*\{.*?\};", __import__("re").DOTALL)
+    pattern = re.compile(r"const\s+EMBEDDED_DATA\s*=\s*\{.*?\};", re.DOTALL)
     if not pattern.search(html):
         log(f"WARN: {HTML_FILE.name} 中未找到 EMBEDDED_DATA 标记")
         return
@@ -283,7 +350,6 @@ def make_png(data):
         return
 
     series = build_series(data)
-    # 重建 category / 英文名 映射（从 history 反查）
     cat_of, en_of = {}, {}
     for recs in data["history"].values():
         for r in recs:
@@ -295,22 +361,24 @@ def make_png(data):
         if cat in cats:
             cats[cat].append((item, pts))
 
-    # 注：matplotlib 默认字体不含中文，PNG 统一用英文标签（看板 HTML 用中文）。
+    # matplotlib 默认字体不含中文，PNG 统一用英文标签（看板 HTML 用中文）。
     fig, axes = plt.subplots(2, 1, figsize=(11, 9))
     colors = plt.cm.tab10.colors
     for ax, (cat, items) in zip(axes, cats.items()):
         for i, (item, pts) in enumerate(items):
             xs = [_dt.strptime(d, "%Y-%m-%d") for d, _ in pts]
             ys = [p for _, p in pts]
-            ax.plot(xs, ys, marker="o", label=en_of.get(item, item), color=colors[i % len(colors)])
-        title = "Fertilizer price (CNY/ton)" if cat == "化肥" else "Pesticide price (CNY/ton, log scale)"
+            ax.plot(xs, ys, marker="o", label=en_of.get(item, item),
+                    color=colors[i % len(colors)])
+        title = "Fertilizer price (CNY/ton)" if cat == "化肥" \
+            else "Pesticide price (CNY/ton, log scale)"
         ax.set_title(title)
         ax.set_xlabel("Date")
         ax.set_ylabel("Price")
         ax.legend(fontsize=8)
         ax.grid(True, alpha=0.3)
         if cat == "农药":
-            ax.set_yscale("log")  # 农药品种价差大，用对数轴
+            ax.set_yscale("log")
         ax.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d"))
         fig.autofmt_xdate()
     fig.suptitle(f"AgriChem Price Monitor · updated {TODAY}", fontsize=14)
@@ -324,6 +392,8 @@ def make_png(data):
 
 def main():
     log("=== 农化价格监控器 开始运行 ===")
+    if not HAVE_PW:
+        log("提示: 未安装 playwright，生意社现货价将不可用（仅尿素实时 + 其余参考价）")
     try:
         records = collect()
     except Exception:
@@ -346,8 +416,21 @@ def main():
     print("\n=== 今日价格 ===")
     for r in records:
         tag = {"live": "实时", "live-100ppi": "现货", "reference": f"参考@{r.get('as_of','')}"}.get(r["source"], r["source"])
-        print(f"  {r['category']:>3} {r['item']:<6} {r['price']:>10,.2f} {r['unit']}  [{tag}]")
+        print(f"  {r['category']:>3} {r['item']:<6} {r['price']:>12,.2f} {r['unit']}  [{tag}]")
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except SystemExit:
+        raise
+    except Exception:
+        import traceback as _tb
+        _msg = _tb.format_exc()
+        try:
+            with open(SCRIPT_DIR / "crash.log", "a", encoding="utf-8") as _f:
+                _f.write(f"[{ISO_TIME}]\n{_msg}\n")
+        except Exception:
+            pass
+        print(_msg)
+        raise
