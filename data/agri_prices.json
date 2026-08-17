@@ -1,0 +1,107 @@
+{
+  "last_updated": "2026-08-17T01:59:18Z",
+  "history": {
+    "2026-08-17": [
+      {
+        "item": "尿素",
+        "en": "Urea",
+        "category": "化肥",
+        "price": 1687.0,
+        "unit": "元/吨",
+        "source": "live",
+        "provider": "新浪期货 UR0",
+        "scrape_time": "2026-08-17T01:59:18Z"
+      },
+      {
+        "item": "磷酸一铵",
+        "en": "MAP",
+        "category": "化肥",
+        "price": 3300,
+        "unit": "元/吨",
+        "source": "reference",
+        "as_of": "2026-08-01",
+        "scrape_time": "2026-08-17T01:59:18Z"
+      },
+      {
+        "item": "磷酸二铵",
+        "en": "DAP",
+        "category": "化肥",
+        "price": 3700,
+        "unit": "元/吨",
+        "source": "reference",
+        "as_of": "2026-08-01",
+        "scrape_time": "2026-08-17T01:59:18Z"
+      },
+      {
+        "item": "氯化钾",
+        "en": "KCl",
+        "category": "化肥",
+        "price": 2500,
+        "unit": "元/吨",
+        "source": "reference",
+        "as_of": "2026-08-01",
+        "scrape_time": "2026-08-17T01:59:18Z"
+      },
+      {
+        "item": "硫酸钾",
+        "en": "SOP",
+        "category": "化肥",
+        "price": 3200,
+        "unit": "元/吨",
+        "source": "reference",
+        "as_of": "2026-08-01",
+        "scrape_time": "2026-08-17T01:59:18Z"
+      },
+      {
+        "item": "复合肥",
+        "en": "NPK",
+        "category": "化肥",
+        "price": 2700,
+        "unit": "元/吨",
+        "source": "reference",
+        "as_of": "2026-08-01",
+        "scrape_time": "2026-08-17T01:59:18Z"
+      },
+      {
+        "item": "草甘膦",
+        "en": "Glyphosate",
+        "category": "农药",
+        "price": 26000,
+        "unit": "元/吨",
+        "source": "reference",
+        "as_of": "2026-08-01",
+        "scrape_time": "2026-08-17T01:59:18Z"
+      },
+      {
+        "item": "吡虫啉",
+        "en": "Imidacloprid",
+        "category": "农药",
+        "price": 75000,
+        "unit": "元/吨",
+        "source": "reference",
+        "as_of": "2026-08-01",
+        "scrape_time": "2026-08-17T01:59:18Z"
+      },
+      {
+        "item": "多菌灵",
+        "en": "Carbendazim",
+        "category": "农药",
+        "price": 35000,
+        "unit": "元/吨",
+        "source": "reference",
+        "as_of": "2026-08-01",
+        "scrape_time": "2026-08-17T01:59:18Z"
+      },
+      {
+        "item": "阿维菌素",
+        "en": "Abamectin",
+        "category": "农药",
+        "price": 480000,
+        "unit": "元/吨",
+        "source": "reference",
+        "as_of": "2026-08-01",
+        "scrape_time": "2026-08-17T01:59:18Z"
+      }
+    ]
+  }
+}

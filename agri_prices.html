@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>农化价格监控看板</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+         margin: 0; background: #f5f7fa; color: #1f2933; }
+  header { background: linear-gradient(135deg, #2e7d32, #558b2f); color: #fff;
+           padding: 18px 24px; }
+  header h1 { margin: 0; font-size: 20px; }
+  header p { margin: 4px 0 0; opacity: .85; font-size: 13px; }
+  .wrap { max-width: 1100px; margin: 20px auto; padding: 0 16px; }
+  .cards { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; }
+  .card { background: #fff; border-radius: 10px; padding: 12px 16px; flex: 1 1 150px;
+          box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+  .card .name { font-size: 13px; color: #667; }
+  .card .price { font-size: 20px; font-weight: 700; margin-top: 4px; }
+  .card .meta { font-size: 11px; color: #99a; margin-top: 2px; }
+  .card.live { border-left: 4px solid #2e7d32; }
+  .card.ref { border-left: 4px solid #f0a020; }
+  .panel { background: #fff; border-radius: 10px; padding: 16px; margin-bottom: 20px;
+           box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+  .panel h2 { margin: 0 0 12px; font-size: 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #eef; }
+  th { background: #f0f4f8; }
+  .tag { font-size: 11px; padding: 1px 6px; border-radius: 4px; }
+  .tag.live { background: #e3f2e4; color: #2e7d32; }
+  .tag.ref { background: #fdf0dc; color: #b9770e; }
+  canvas { max-height: 340px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🌱 农化价格监控看板</h1>
+  <p id="subtitle">加载中…</p>
+</header>
+
+<div class="wrap">
+  <div class="cards" id="cards"></div>
+
+  <div class="panel">
+    <h2>化肥价格走势</h2>
+    <canvas id="chartFert"></canvas>
+  </div>
+
+  <div class="panel">
+    <h2>农药价格走势（对数轴）</h2>
+    <canvas id="chartPest"></canvas>
+  </div>
+
+  <div class="panel">
+    <h2>今日明细</h2>
+    <table id="table">
+      <thead><tr><th>品种</th><th>类别</th><th>价格</th><th>单位</th><th>来源</th><th>日期</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const EMBEDDED_DATA = {"last_updated": "2026-08-17T01:59:18Z", "history": {"2026-08-17": [{"item": "尿素", "en": "Urea", "category": "化肥", "price": 1687.0, "unit": "元/吨", "source": "live", "provider": "新浪期货 UR0", "scrape_time": "2026-08-17T01:59:18Z"}, {"item": "磷酸一铵", "en": "MAP", "category": "化肥", "price": 3300, "unit": "元/吨", "source": "reference", "as_of": "2026-08-01", "scrape_time": "2026-08-17T01:59:18Z"}, {"item": "磷酸二铵", "en": "DAP", "category": "化肥", "price": 3700, "unit": "元/吨", "source": "reference", "as_of": "2026-08-01", "scrape_time": "2026-08-17T01:59:18Z"}, {"item": "氯化钾", "en": "KCl", "category": "化肥", "price": 2500, "unit": "元/吨", "source": "reference", "as_of": "2026-08-01", "scrape_time": "2026-08-17T01:59:18Z"}, {"item": "硫酸钾", "en": "SOP", "category": "化肥", "price": 3200, "unit": "元/吨", "source": "reference", "as_of": "2026-08-01", "scrape_time": "2026-08-17T01:59:18Z"}, {"item": "复合肥", "en": "NPK", "category": "化肥", "price": 2700, "unit": "元/吨", "source": "reference", "as_of": "2026-08-01", "scrape_time": "2026-08-17T01:59:18Z"}, {"item": "草甘膦", "en": "Glyphosate", "category": "农药", "price": 26000, "unit": "元/吨", "source": "reference", "as_of": "2026-08-01", "scrape_time": "2026-08-17T01:59:18Z"}, {"item": "吡虫啉", "en": "Imidacloprid", "category": "农药", "price": 75000, "unit": "元/吨", "source": "reference", "as_of": "2026-08-01", "scrape_time": "2026-08-17T01:59:18Z"}, {"item": "多菌灵", "en": "Carbendazim", "category": "农药", "price": 35000, "unit": "元/吨", "source": "reference", "as_of": "2026-08-01", "scrape_time": "2026-08-17T01:59:18Z"}, {"item": "阿维菌素", "en": "Abamectin", "category": "农药", "price": 480000, "unit": "元/吨", "source": "reference", "as_of": "2026-08-01", "scrape_time": "2026-08-17T01:59:18Z"}]}};
+
+function buildSeries(data) {
+  const series = {};
+  for (const date of Object.keys(data.history).sort()) {
+    for (const r of data.history[date]) {
+      (series[r.item] = series[r.item] || []).push({ x: date, y: r.price });
+    }
+  }
+  return series;
+}
+
+function render() {
+  const data = EMBEDDED_DATA;
+  const dates = Object.keys(data.history).sort();
+  const latest = dates.length ? data.history[dates[dates.length - 1]] : [];
+  document.getElementById("subtitle").textContent =
+    `最近更新 ${data.last_updated || "?"}  ·  共 ${dates.length} 天历史`;
+
+  // 卡片
+  const cards = document.getElementById("cards");
+  cards.innerHTML = "";
+  for (const r of latest) {
+    const isLive = r.source && r.source.startsWith("live");
+    const div = document.createElement("div");
+    div.className = "card " + (isLive ? "live" : "ref");
+    const meta = isLive
+      ? (r.provider || "实时")
+      : ("参考价 " + (r.as_of || ""));
+    div.innerHTML = `<div class="name">${r.item}</div>
+      <div class="price">${Number(r.price).toLocaleString()}</div>
+      <div class="meta">${r.unit} · ${meta}</div>`;
+    cards.appendChild(div);
+  }
+
+  // 图表（category 轴 + 日期对齐，无需 time 适配器）
+  const series = buildSeries(data);
+  const fertItems = latest.filter(r => r.category === "化肥").map(r => r.item);
+  const pestItems = latest.filter(r => r.category === "农药").map(r => r.item);
+  const palette = ["#2e7d32","#558b2f","#1565c0","#6a1b9a","#ad1457","#ef6c00","#00838f","#4527a0","#c62828","#558b2f"];
+
+  function unionDates(items) {
+    const s = new Set();
+    items.forEach(it => (series[it] || []).forEach(p => s.add(p.x)));
+    return Array.from(s).sort();
+  }
+  function align(item, labels) {
+    const m = {};
+    (series[item] || []).forEach(p => { m[p.x] = p.y; });
+    return labels.map(l => (l in m ? m[l] : null));
+  }
+  function makeChart(canvasId, items, logScale) {
+    const labels = unionDates(items);
+    const datasets = items.map((item, i) => ({
+      label: item,
+      data: align(item, labels),
+      borderColor: palette[i % palette.length],
+      backgroundColor: palette[i % palette.length],
+      tension: 0.25, pointRadius: 2, spanGaps: true,
+    }));
+    new Chart(document.getElementById(canvasId), {
+      type: "line",
+      data: { labels, datasets },
+      options: {
+        responsive: true,
+        interaction: { mode: "index", intersect: false },
+        scales: {
+          x: { type: "category", title: { display: true, text: "日期" },
+               ticks: { maxTicksLimit: 12, autoSkip: true } },
+          y: { type: logScale ? "logarithmic" : "linear",
+               title: { display: true, text: "元/吨" } }
+        },
+        plugins: { legend: { position: "bottom", labels: { boxWidth: 12, font: { size: 11 } } } }
+      }
+    });
+  }
+  makeChart("chartFert", fertItems, false);
+  makeChart("chartPest", pestItems, true);
+
+  // 表格
+  const tbody = document.querySelector("#table tbody");
+  tbody.innerHTML = "";
+  for (const r of latest) {
+    const isLive = r.source && r.source.startsWith("live");
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${r.item}</td><td>${r.category}</td>
+      <td>${Number(r.price).toLocaleString()}</td><td>${r.unit}</td>
+      <td><span class="tag ${isLive ? "live" : "ref"}">${isLive ? (r.provider||"实时") : "参考 "+ (r.as_of||"")}</span></td>
+      <td>${dates[dates.length-1]}</td>`;
+    tbody.appendChild(tr);
+  }
+}
+render();
+</script>
+</body>
+</html>
