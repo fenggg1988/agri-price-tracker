@@ -5,19 +5,20 @@
 监控三大类生产资料/农产品的市场方向：
   · 化肥 (Fertilizer) : 尿素、磷酸一铵、磷酸二铵、氯化钾、硫酸钾、复合肥
   · 农药 (Pesticide)  : 草甘膦、吡虫啉、多菌灵、阿维菌素
-  · 水果 (Fruit)      : 苹果(期货实时)、柑橘类、梨、桃、李子 + 全国水果价格指数(代理)
+  · 水果 (Fruit)      : 苹果(期货实时) + 水果价格指数(农业农村部官方，免费开放)
 
-数据源策略：
+数据源策略（坚持"只抓真实数据、不合成指数"）：
   · 尿素/苹果 —— 实时抓取（新浪期货 UR0 / AP0 主连，免费、无鉴权、稳定），source="live"
   · 其余化肥/农药 —— 生意社报价中心现货价（Playwright 真实浏览器渲染，过基础反爬），
              取当日多家报价的中位数，source="live-100ppi"；
              单个品种不可达时回退到 TARGETS 中人工维护的参考价（source="reference"）。
   · 吡虫啉 —— 生意社报价中心暂无该品种报价，固定使用参考价兜底（已核实无数据源）。
-  · 柑橘类/梨/桃/李子 —— 生意社/农业农村部均无免费日度鲜果数据源（已实测：生意社只有化工品、
-             农业农村部官方指数 API 需鉴权 401），暂用参考价占位（source="reference"，
-             标注"暂无免费日度源"），可由用户在 TARGETS 中更新或在拿到官方 API token 后替换。
-  · 全国水果价格指数(代理) —— 由监控水果归一化均值构造的方向性指数（基准100），
-             弥补官方指数不可免费抓取；source="derived"。
+  · 水果价格指数(官方) —— 农业农村部信息中心「全国农产品批发市场价格信息系统」公开接口
+             （/price_portal/pi-info-day/getIndexByLevel，免费、无需登录），
+             返回官方发布的"水果"价格指数，source="live-moa"。真实官方指数，非合成。
+  · 柑橘/梨/桃/李子 等单品鲜果 —— 农业农村部按品种的批发价明细接口需要登录态 token，
+             免费注册后仍可取数；当前未接入，故不纳入监控（不编造数据）。
+             若用户注册并提供会话 token，可在 fetch_moa_fruit_index() 旁扩展单品抓取。
 
 输出：
   data/agri_prices.json  —— 按 YYYY-MM-DD 键值的完整历史
@@ -106,20 +107,9 @@ TARGETS = [
     # 水果
     {"key": "苹果",     "en": "Apple",        "category": "水果", "unit": "元/吨",
      "pid": None, "futures": "AP0", "ref_price": 7800, "as_of": "2026-08-14"},
-    {"key": "柑橘类",   "en": "Citrus",       "category": "水果", "unit": "元/吨",
-     "pid": None, "ref_price": 7000, "as_of": "2026-08-01"},   # 生意社无鲜果数据，参考价占位
-    {"key": "梨",       "en": "Pear",         "category": "水果", "unit": "元/吨",
-     "pid": None, "ref_price": 5000, "as_of": "2026-08-01"},   # 同上
-    {"key": "桃",       "en": "Peach",        "category": "水果", "unit": "元/吨",
-     "pid": None, "ref_price": 8000, "as_of": "2026-08-01"},   # 同上
-    {"key": "李子",     "en": "Plum",         "category": "水果", "unit": "元/吨",
-     "pid": None, "ref_price": 10000, "as_of": "2026-08-01"},  # 同上
 ]
 
-# 水果代理指数基线（元/吨）：用于构造"全国水果价格指数(代理)"，基准=100；可按需调整
-FRUIT_BASELINE = {
-    "苹果": 7800, "柑橘类": 7000, "梨": 5000, "桃": 8000, "李子": 10000,
-}
+# 注：不再构造任何合成/代理指数。水果价格只使用真实来源：苹果(新浪期货) + 农业农村部官方水果价格指数。
 
 
 def log(msg: str) -> None:
@@ -158,6 +148,33 @@ def fetch_apple_sina():
         return None
     last = bars[-1]
     return float(last["c"]), last["d"]
+
+
+# ── 官方水果价格指数：农业农村部信息中心「全国农产品批发市场价格信息系统」 ──
+# 公开接口，免费、无需登录鉴权；返回官方发布的"水果"价格指数（indexType=AF）。
+MOA_INDEX_API = "https://pfsc.agri.cn/price_portal/pi-info-day/getIndexByLevel"
+
+def fetch_moa_fruit_index():
+    """返回 (value, publish_date) 或 None。农业农村部官方水果价格指数，真实、非合成。"""
+    try:
+        r = requests.post(
+            MOA_INDEX_API,
+            headers={**HEADERS, "Referer": "https://pfsc.agri.cn/"},
+            json={}, timeout=20,
+        )
+        r.raise_for_status()
+        d = r.json()
+        if d.get("code") != 200 or not d.get("content"):
+            log("农业农村部指数接口返回异常: " + str(d.get("message", "")))
+            return None
+        for level in d["content"]:
+            for row in level:
+                if row.get("indexType") == "AF":   # AF = 水果
+                    return float(row["indexValue"]), (row.get("publishDate") or "")[:10]
+        return None
+    except Exception as e:
+        log(f"农业农村部水果指数抓取失败: {e}")
+        return None
 
 
 # ── 真实浏览器抓取：生意社报价中心现货价 ──────────────────────────────────
@@ -314,17 +331,21 @@ def collect():
                 rec["note"] = note
             records.append(rec)
 
-    # 3) 全国水果价格指数（代理）：用监控水果归一化均值构造方向性指数（基准100）
-    fruit_recs = [r for r in records if r["category"] == "水果" and r["item"] in FRUIT_BASELINE]
-    if fruit_recs:
-        idx = sum(r["price"] / FRUIT_BASELINE[r["item"]] for r in fruit_recs) / len(fruit_recs) * 100
+    # 3) 水果价格指数（农业农村部官方，免费公开接口，真实指数、非合成）
+    moa = fetch_moa_fruit_index()
+    if moa:
+        val, idate = moa
         records.append({
-            "item": "全国水果价格指数(代理)", "en": "FruitIdx", "category": "水果",
-            "price": round(idx, 2), "unit": "指数(基准100)",
-            "source": "derived",
-            "provider": "由代表品种构造(苹果期货+参考价)；官方指数需农业农村部API鉴权",
+            "item": "水果价格指数(官方)", "en": "FruitIdxMOA", "category": "水果",
+            "price": round(val, 2), "unit": "指数",
+            "source": "live-moa",
+            "provider": "农业农村部·全国农产品批发市场价格信息系统",
+            "as_of": idate,
             "scrape_time": ISO_TIME,
         })
+        log(f"农业农村部水果价格指数: {val} (发布日 {idate})")
+    else:
+        log("农业农村部水果指数: 未取到（不影响其他品种）")
     return records
 
 
@@ -448,7 +469,7 @@ def make_png(data):
             ys = [p for _, p in pts]
             ax.plot(xs, ys, marker="o", label=en_of.get(item, item),
                     color=colors[i % len(colors)])
-        title = f"{cat} price (CNY/ton)" if cat != "指数" else "Fruit price index (base=100)"
+        title = f"{cat} price (CNY/ton)" if cat != "指数" else "Price index (MOA official)"
         ax.set_title(title)
         ax.set_xlabel("Date")
         ax.set_ylabel("Price" if cat != "指数" else "Index")
