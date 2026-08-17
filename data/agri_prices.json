@@ -1,5 +1,5 @@
 {
-  "last_updated": "2026-08-17T02:40:14Z",
+  "last_updated": "2026-08-17T05:45:23Z",
   "history": {
     "2026-08-17": [
       {
@@ -10,7 +10,7 @@
         "unit": "元/吨",
         "source": "live",
         "provider": "新浪期货 UR0",
-        "scrape_time": "2026-08-17T02:40:14Z"
+        "scrape_time": "2026-08-17T05:45:23Z"
       },
       {
         "item": "磷酸一铵",
@@ -20,7 +20,7 @@
         "unit": "元/吨",
         "source": "live-100ppi",
         "provider": "生意社报价中心(2026-08-17)",
-        "scrape_time": "2026-08-17T02:40:14Z"
+        "scrape_time": "2026-08-17T05:45:23Z"
       },
       {
         "item": "磷酸二铵",
@@ -30,17 +30,17 @@
         "unit": "元/吨",
         "source": "live-100ppi",
         "provider": "生意社报价中心(2026-08-17)",
-        "scrape_time": "2026-08-17T02:40:14Z"
+        "scrape_time": "2026-08-17T05:45:23Z"
       },
       {
         "item": "氯化钾",
         "en": "KCl",
         "category": "化肥",
-        "price": 2975.0,
+        "price": 3050.0,
         "unit": "元/吨",
         "source": "live-100ppi",
         "provider": "生意社报价中心(2026-08-17)",
-        "scrape_time": "2026-08-17T02:40:14Z"
+        "scrape_time": "2026-08-17T05:45:23Z"
       },
       {
         "item": "硫酸钾",
@@ -50,7 +50,7 @@
         "unit": "元/吨",
         "source": "live-100ppi",
         "provider": "生意社报价中心(2026-08-17)",
-        "scrape_time": "2026-08-17T02:40:14Z"
+        "scrape_time": "2026-08-17T05:45:23Z"
       },
       {
         "item": "复合肥",
@@ -60,7 +60,7 @@
         "unit": "元/吨",
         "source": "reference",
         "as_of": "2026-08-01",
-        "scrape_time": "2026-08-17T02:40:14Z"
+        "scrape_time": "2026-08-17T05:45:23Z"
       },
       {
         "item": "草甘膦",
@@ -70,7 +70,7 @@
         "unit": "元/吨",
         "source": "reference",
         "as_of": "2026-08-01",
-        "scrape_time": "2026-08-17T02:40:14Z"
+        "scrape_time": "2026-08-17T05:45:23Z"
       },
       {
         "item": "吡虫啉",
@@ -80,7 +80,7 @@
         "unit": "元/吨",
         "source": "reference",
         "as_of": "2026-08-01",
-        "scrape_time": "2026-08-17T02:40:14Z"
+        "scrape_time": "2026-08-17T05:45:23Z"
       },
       {
         "item": "多菌灵",
@@ -90,7 +90,7 @@
         "unit": "元/吨",
         "source": "live-100ppi",
         "provider": "生意社报价中心(2026-08-14)",
-        "scrape_time": "2026-08-17T02:40:14Z"
+        "scrape_time": "2026-08-17T05:45:23Z"
       },
       {
         "item": "阿维菌素",
@@ -100,7 +100,7 @@
         "unit": "元/吨",
         "source": "reference",
         "as_of": "2026-08-01",
-        "scrape_time": "2026-08-17T02:40:14Z"
+        "scrape_time": "2026-08-17T05:45:23Z"
       }
     ]
   }

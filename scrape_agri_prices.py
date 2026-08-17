@@ -336,6 +336,10 @@ def embed_in_html(data):
     if new_html != html:
         HTML_FILE.write_text(new_html, encoding="utf-8")
         log(f"已更新 {HTML_FILE.name}")
+        # 同时生成 index.html 作为 GitHub Pages 的首页入口
+        idx = SCRIPT_DIR / "index.html"
+        idx.write_text(new_html, encoding="utf-8")
+        log(f"已生成 {idx.name}（GitHub Pages 入口）")
 
 
 def make_png(data):
