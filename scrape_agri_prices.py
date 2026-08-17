@@ -121,6 +121,10 @@ TARGETS = [
      "ref_price": 8.0,  "as_of": "2026-08-01"},
     {"key": "李子",   "en": "Plum",   "category": "水果", "unit": "元/公斤", "vc": "AF03002",
      "ref_price": 5.0,  "as_of": "2026-08-01"},
+    # 油茶：平台(油茶子 AB01011)有品类但暂无批发价记录。占位"暂无数据"，
+    # 等农业农村部平台补充数据后，fetch_ncpscxx_fruit 取到值会自动转为 live-moa。
+    {"key": "油茶",   "en": "OilTea", "category": "水果", "unit": "元/公斤", "vc": "AB01011",
+     "ref_price": None, "as_of": "2026-08-01", "placeholder": True},
 ]
 
 # 注：不再构造任何合成/代理指数。水果价格只使用真实来源：苹果(新浪期货) + 农业农村部官方水果价格指数。
@@ -374,13 +378,24 @@ def collect():
                 })
                 log(f"ncpscxx {key}: 中位 {median} 元/公斤 (全国{n}市场, 日均{mean}, {idate})")
             else:
-                records.append({
-                    "item": key, "en": t["en"], "category": t["category"],
-                    "price": t["ref_price"], "unit": t["unit"],
-                    "source": "reference", "as_of": t["as_of"],
-                    "scrape_time": ISO_TIME,
-                })
-                log(f"ncpscxx {key}: 抓取失败，回退参考价 {t['ref_price']} 元/公斤")
+                if t.get("placeholder"):
+                    # 平台有品类但暂无批发价记录：标"暂无数据"，不造假
+                    records.append({
+                        "item": key, "en": t["en"], "category": t["category"],
+                        "price": None, "unit": t["unit"],
+                        "source": "no-data", "as_of": TODAY,
+                        "note": "暂无数据源，待农业农村部平台更新后自动补抓",
+                        "scrape_time": ISO_TIME,
+                    })
+                    log(f"ncpscxx {key}: 暂无数据（占位，待平台更新）")
+                else:
+                    records.append({
+                        "item": key, "en": t["en"], "category": t["category"],
+                        "price": t["ref_price"], "unit": t["unit"],
+                        "source": "reference", "as_of": t["as_of"],
+                        "scrape_time": ISO_TIME,
+                    })
+                    log(f"ncpscxx {key}: 抓取失败，回退参考价 {t['ref_price']} 元/公斤")
             continue
         # 期货实时品种
         fut = t.get("futures")
@@ -460,7 +475,8 @@ def write_csv(data):
         for r in recs:
             rows.append({
                 "date": date, "item": r["item"], "en": r.get("en", ""),
-                "category": r["category"], "price": r["price"],
+                "category": r["category"],
+                "price": "" if r.get("price") is None else r["price"],
                 "unit": r["unit"], "source": r["source"],
                 "provider": r.get("provider", ""), "as_of": r.get("as_of", ""),
             })
@@ -548,8 +564,13 @@ def make_png(data):
     colors = plt.cm.tab10.colors
     for ax, (cat, items, _log) in zip(axes[:, 0], charts):
         for i, (item, pts) in enumerate(items):
-            xs = [_dt.strptime(d, "%Y-%m-%d") for d, _ in pts]
-            ys = [p for _, p in pts]
+            xs, ys = [], []
+            for d, p in pts:
+                if p is not None:
+                    xs.append(_dt.strptime(d, "%Y-%m-%d"))
+                    ys.append(p)
+            if not xs:
+                continue
             ax.plot(xs, ys, marker="o", label=en_of.get(item, item),
                     color=colors[i % len(colors)])
         if cat == "水果":
@@ -610,8 +631,10 @@ def main():
 
     print("\n=== 今日价格 ===")
     for r in records:
-        tag = {"live": "实时", "live-100ppi": "现货", "reference": f"参考@{r.get('as_of','')}"}.get(r["source"], r["source"])
-        print(f"  {r['category']:>3} {r['item']:<6} {r['price']:>12,.2f} {r['unit']}  [{tag}]")
+        tag = {"live": "实时", "live-100ppi": "现货", "reference": f"参考@{r.get('as_of','')}",
+               "no-data": "暂无数据"}.get(r["source"], r["source"])
+        price_text = "暂无数据" if r.get("price") is None else f"{r['price']:>12,.2f}"
+        print(f"  {r['category']:>3} {r['item']:<6} {price_text} {r['unit']}  [{tag}]")
 
 
 if __name__ == "__main__":
