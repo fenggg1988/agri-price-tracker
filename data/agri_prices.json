@@ -1,5 +1,5 @@
 {
-  "last_updated": "2026-09-01T06:08:04Z",
+  "last_updated": "2026-09-02T05:33:55Z",
   "history": {
     "2026-08-17": [
       {
@@ -2863,6 +2863,185 @@
         "provider": "农业农村部·全国农产品批发市场价格信息系统",
         "as_of": "2026-09-01",
         "scrape_time": "2026-09-01T06:08:04Z"
+      }
+    ],
+    "2026-09-02": [
+      {
+        "item": "尿素",
+        "en": "Urea",
+        "category": "化肥",
+        "price": 1767.0,
+        "unit": "元/吨",
+        "source": "live",
+        "provider": "新浪期货 UR0",
+        "scrape_time": "2026-09-02T05:33:55Z"
+      },
+      {
+        "item": "磷酸一铵",
+        "en": "MAP",
+        "category": "化肥",
+        "price": 7050.0,
+        "unit": "元/吨",
+        "source": "live-100ppi",
+        "provider": "生意社报价中心(2026-09-02)",
+        "scrape_time": "2026-09-02T05:33:55Z"
+      },
+      {
+        "item": "磷酸二铵",
+        "en": "DAP",
+        "category": "化肥",
+        "price": 8700.0,
+        "unit": "元/吨",
+        "source": "live-100ppi",
+        "provider": "生意社报价中心(2026-09-02)",
+        "scrape_time": "2026-09-02T05:33:55Z"
+      },
+      {
+        "item": "氯化钾",
+        "en": "KCl",
+        "category": "化肥",
+        "price": 3200.0,
+        "unit": "元/吨",
+        "source": "live-100ppi",
+        "provider": "生意社报价中心(2026-09-02)",
+        "scrape_time": "2026-09-02T05:33:55Z"
+      },
+      {
+        "item": "硫酸钾",
+        "en": "SOP",
+        "category": "化肥",
+        "price": 4350.0,
+        "unit": "元/吨",
+        "source": "live-100ppi",
+        "provider": "生意社报价中心(2026-09-02)",
+        "scrape_time": "2026-09-02T05:33:55Z"
+      },
+      {
+        "item": "复合肥",
+        "en": "NPK",
+        "category": "化肥",
+        "price": 2800,
+        "unit": "元/吨",
+        "source": "reference",
+        "as_of": "2026-08-01",
+        "scrape_time": "2026-09-02T05:33:55Z"
+      },
+      {
+        "item": "草甘膦",
+        "en": "Glyphosate",
+        "category": "农药",
+        "price": 26000,
+        "unit": "元/吨",
+        "source": "reference",
+        "as_of": "2026-08-01",
+        "scrape_time": "2026-09-02T05:33:55Z"
+      },
+      {
+        "item": "吡虫啉",
+        "en": "Imidacloprid",
+        "category": "农药",
+        "price": 75000,
+        "unit": "元/吨",
+        "source": "reference",
+        "as_of": "2026-08-01",
+        "scrape_time": "2026-09-02T05:33:55Z"
+      },
+      {
+        "item": "多菌灵",
+        "en": "Carbendazim",
+        "category": "农药",
+        "price": 40000.0,
+        "unit": "元/吨",
+        "source": "live-100ppi",
+        "provider": "生意社报价中心(2026-09-02)",
+        "scrape_time": "2026-09-02T05:33:55Z"
+      },
+      {
+        "item": "阿维菌素",
+        "en": "Abamectin",
+        "category": "农药",
+        "price": 480000,
+        "unit": "元/吨",
+        "source": "reference",
+        "as_of": "2026-08-01",
+        "scrape_time": "2026-09-02T05:33:55Z"
+      },
+      {
+        "item": "苹果",
+        "en": "Apple",
+        "category": "水果",
+        "price": 7.3,
+        "unit": "元/公斤",
+        "source": "live-moa",
+        "provider": "农业农村部批发价(全国26市场中位/均7.98)",
+        "as_of": "2026-09-02",
+        "scrape_time": "2026-09-02T05:33:55Z"
+      },
+      {
+        "item": "柑橘类",
+        "en": "Citrus",
+        "category": "水果",
+        "price": 4.9,
+        "unit": "元/公斤",
+        "source": "live-moa",
+        "provider": "农业农村部批发价(全国10市场中位/均5.48)",
+        "as_of": "2026-09-02",
+        "scrape_time": "2026-09-02T05:33:55Z"
+      },
+      {
+        "item": "梨",
+        "en": "Pear",
+        "category": "水果",
+        "price": 3.65,
+        "unit": "元/公斤",
+        "source": "live-moa",
+        "provider": "农业农村部批发价(全国18市场中位/均4.3)",
+        "as_of": "2026-09-02",
+        "scrape_time": "2026-09-02T05:33:55Z"
+      },
+      {
+        "item": "桃",
+        "en": "Peach",
+        "category": "水果",
+        "price": 5.68,
+        "unit": "元/公斤",
+        "source": "live-moa",
+        "provider": "农业农村部批发价(全国18市场中位/均7.2)",
+        "as_of": "2026-09-02",
+        "scrape_time": "2026-09-02T05:33:55Z"
+      },
+      {
+        "item": "李子",
+        "en": "Plum",
+        "category": "水果",
+        "price": 3.65,
+        "unit": "元/公斤",
+        "source": "live-moa",
+        "provider": "农业农村部批发价(全国3市场中位/均3.55)",
+        "as_of": "2026-09-02",
+        "scrape_time": "2026-09-02T05:33:55Z"
+      },
+      {
+        "item": "油茶",
+        "en": "OilTea",
+        "category": "水果",
+        "price": null,
+        "unit": "元/公斤",
+        "source": "no-data",
+        "as_of": "2026-09-02",
+        "note": "暂无数据源，待农业农村部平台更新后自动补抓",
+        "scrape_time": "2026-09-02T05:33:55Z"
+      },
+      {
+        "item": "水果价格指数(官方)",
+        "en": "FruitIdxMOA",
+        "category": "水果",
+        "price": 118.35,
+        "unit": "指数",
+        "source": "live-moa",
+        "provider": "农业农村部·全国农产品批发市场价格信息系统",
+        "as_of": "2026-09-01",
+        "scrape_time": "2026-09-02T05:33:55Z"
       }
     ]
   }
