@@ -6,11 +6,11 @@ on:
     # 09:00 Beijing time (UTC+8) == 01:00 UTC
     - cron: "0 1 * * *"
   workflow_dispatch:
-  inputs:
-    chain:
-      description: "内部使用：链式调度传来的标记，勿手动填写"
-      required: false
-      default: "0"
+    inputs:
+      chain:
+        description: "内部使用：链式调度传来的标记，勿手动填写"
+        required: false
+        default: "0"
 
 permissions:
   contents: write
