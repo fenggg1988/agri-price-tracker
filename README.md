@@ -3,6 +3,13 @@
 每日抓取**化肥 / 农药 / 水果**主要生产资料与农产品的市场价格，保存历史并生成走势图，监控市场方向。
 参考 `gpu-price-tracker` 的 live + reference 架构，纯 Python、零密钥、可每日运行。
 
+## 在线看板（GitHub Pages，云端自动更新）
+
+**https://fenggg1988.github.io/agri-price-tracker/**
+
+数据由 GitHub Actions 每天在云端自动抓取并提交，GitHub Pages 随之自动重建，因此
+**不需要本地电脑开机、也不需要打开任何软件**。本页数据随时是最新的。
+
 ## 监控品种
 
 | 类别 | 品种 | 数据来源 | 状态 |
