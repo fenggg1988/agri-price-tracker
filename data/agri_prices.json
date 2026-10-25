@@ -1,5 +1,5 @@
 {
-  "last_updated": "2026-10-25T05:29:51Z",
+  "last_updated": "2026-10-25T05:43:00Z",
   "history": {
     "2026-08-17": [
       {
@@ -10551,7 +10551,7 @@
         "unit": "元/吨",
         "source": "live",
         "provider": "新浪期货 UR0",
-        "scrape_time": "2026-10-25T05:29:51Z"
+        "scrape_time": "2026-10-25T05:43:00Z"
       },
       {
         "item": "磷酸一铵",
@@ -10561,7 +10561,7 @@
         "unit": "元/吨",
         "source": "live-100ppi",
         "provider": "生意社报价中心(2026-10-24)",
-        "scrape_time": "2026-10-25T05:29:51Z"
+        "scrape_time": "2026-10-25T05:43:00Z"
       },
       {
         "item": "磷酸二铵",
@@ -10571,7 +10571,7 @@
         "unit": "元/吨",
         "source": "live-100ppi",
         "provider": "生意社报价中心(2026-10-23)",
-        "scrape_time": "2026-10-25T05:29:51Z"
+        "scrape_time": "2026-10-25T05:43:00Z"
       },
       {
         "item": "氯化钾",
@@ -10581,7 +10581,7 @@
         "unit": "元/吨",
         "source": "live-100ppi",
         "provider": "生意社报价中心(2026-10-24)",
-        "scrape_time": "2026-10-25T05:29:51Z"
+        "scrape_time": "2026-10-25T05:43:00Z"
       },
       {
         "item": "硫酸钾",
@@ -10591,7 +10591,7 @@
         "unit": "元/吨",
         "source": "live-100ppi",
         "provider": "生意社报价中心(2026-10-24)",
-        "scrape_time": "2026-10-25T05:29:51Z"
+        "scrape_time": "2026-10-25T05:43:00Z"
       },
       {
         "item": "复合肥",
@@ -10601,7 +10601,7 @@
         "unit": "元/吨",
         "source": "reference",
         "as_of": "2026-08-01",
-        "scrape_time": "2026-10-25T05:29:51Z"
+        "scrape_time": "2026-10-25T05:43:00Z"
       },
       {
         "item": "草甘膦",
@@ -10611,7 +10611,7 @@
         "unit": "元/吨",
         "source": "reference",
         "as_of": "2026-08-01",
-        "scrape_time": "2026-10-25T05:29:51Z"
+        "scrape_time": "2026-10-25T05:43:00Z"
       },
       {
         "item": "吡虫啉",
@@ -10621,7 +10621,7 @@
         "unit": "元/吨",
         "source": "reference",
         "as_of": "2026-08-01",
-        "scrape_time": "2026-10-25T05:29:51Z"
+        "scrape_time": "2026-10-25T05:43:00Z"
       },
       {
         "item": "多菌灵",
@@ -10631,7 +10631,7 @@
         "unit": "元/吨",
         "source": "live-100ppi",
         "provider": "生意社报价中心(2026-10-23)",
-        "scrape_time": "2026-10-25T05:29:51Z"
+        "scrape_time": "2026-10-25T05:43:00Z"
       },
       {
         "item": "阿维菌素",
@@ -10641,27 +10641,29 @@
         "unit": "元/吨",
         "source": "reference",
         "as_of": "2026-08-01",
-        "scrape_time": "2026-10-25T05:29:51Z"
+        "scrape_time": "2026-10-25T05:43:00Z"
       },
       {
         "item": "苹果",
         "en": "Apple",
         "category": "水果",
-        "price": 8.0,
+        "price": 7.0,
         "unit": "元/公斤",
-        "source": "reference",
-        "as_of": "2026-08-01",
-        "scrape_time": "2026-10-25T05:29:51Z"
+        "source": "live-moa",
+        "provider": "农业农村部批发价(全国23市场中位/均7.25)",
+        "as_of": "2026-10-25",
+        "scrape_time": "2026-10-25T05:43:00Z"
       },
       {
         "item": "柑橘类",
         "en": "Citrus",
         "category": "水果",
-        "price": 6.0,
+        "price": 4.0,
         "unit": "元/公斤",
-        "source": "reference",
-        "as_of": "2026-08-01",
-        "scrape_time": "2026-10-25T05:29:51Z"
+        "source": "live-moa",
+        "provider": "农业农村部批发价(全国13市场中位/均4.1)",
+        "as_of": "2026-10-25",
+        "scrape_time": "2026-10-25T05:43:00Z"
       },
       {
         "item": "梨",
@@ -10672,7 +10674,7 @@
         "source": "live-moa",
         "provider": "农业农村部批发价(全国17市场中位/均3.72)",
         "as_of": "2026-10-25",
-        "scrape_time": "2026-10-25T05:29:51Z"
+        "scrape_time": "2026-10-25T05:43:00Z"
       },
       {
         "item": "桃",
@@ -10683,7 +10685,7 @@
         "source": "live-moa",
         "provider": "农业农村部批发价(全国10市场中位/均7.62)",
         "as_of": "2026-10-25",
-        "scrape_time": "2026-10-25T05:29:51Z"
+        "scrape_time": "2026-10-25T05:43:00Z"
       },
       {
         "item": "李子",
@@ -10694,7 +10696,7 @@
         "source": "live-moa",
         "provider": "农业农村部批发价(全国1市场中位/均4.0)",
         "as_of": "2026-10-25",
-        "scrape_time": "2026-10-25T05:29:51Z"
+        "scrape_time": "2026-10-25T05:43:00Z"
       },
       {
         "item": "油茶",
@@ -10705,7 +10707,7 @@
         "source": "no-data",
         "as_of": "2026-10-25",
         "note": "暂无数据源，待农业农村部平台更新后自动补抓",
-        "scrape_time": "2026-10-25T05:29:51Z"
+        "scrape_time": "2026-10-25T05:43:00Z"
       },
       {
         "item": "水果价格指数(官方)",
@@ -10716,7 +10718,7 @@
         "source": "live-moa",
         "provider": "农业农村部·全国农产品批发市场价格信息系统",
         "as_of": "2026-10-23",
-        "scrape_time": "2026-10-25T05:29:51Z"
+        "scrape_time": "2026-10-25T05:43:00Z"
       }
     ]
   }
